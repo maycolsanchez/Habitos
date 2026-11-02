@@ -152,7 +152,6 @@
             const dayLabels = [];
             const chartData = [];
 
-            // Mapeamos los datos correctos: Eje Y son los días, Eje X son los hábitos contados
             for (let day = 1; day <= days; day++) {
                 dayLabels.push(`Día ${day}`);
                 let count = 0;
@@ -162,7 +161,7 @@
                 chartData.push({ x: count, y: `Día ${day}` });
             }
 
-            // Altura exacta sincronizada con las filas de la tabla
+            // Altura exacta sincronizada fila por fila (36px por cada día)
             const chartContainer = document.getElementById('chartContainer');
             chartContainer.style.height = `${days * 36}px`;
 
@@ -179,7 +178,7 @@
                 data: {
                     labels: dayLabels,
                     datasets: [{
-                        label: 'Hábitos completados',
+                        label: 'Hábitos realizados',
                         data: chartData,
                         borderColor: '#4f46e5',
                         backgroundColor: 'rgba(79, 70, 229, 0.1)',
@@ -191,23 +190,33 @@
                     }]
                 },
                 options: {
-                    indexAxis: 'y', // Mantiene los días en vertical
+                    indexAxis: 'y',
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
+                    plugins: {
+                        legend: { display: false },
+                        title: {
+                            display: true,
+                            text: 'Gráfico de Líneas y Puntos (Hábitos realizados)',
+                            font: { size: 12, weight: 'bold' },
+                            color: '#334155',
+                            align: 'start',
+                            padding: { bottom: 10 }
+                        }
+                    },
                     scales: {
                         x: {
                             type: 'linear',
                             min: 0,
                             max: Math.max(window.appData.habits.length, 1),
                             ticks: { stepSize: 1, font: { size: 10 } },
-                            position: 'top', // ¡Coloca los números de 0 al 10 en la parte superior, justo arriba de tu línea naranja!
+                            position: 'top', // Números del 0 al 10 en la parte superior
                             grid: { color: '#e2e8f0' }
                         },
                         y: {
                             type: 'category',
                             labels: dayLabels,
-                            reverse: true, // Asegura que el Día 1 comience arriba coincidiendo con la primera fila
+                            reverse: true, // Día 1 arriba exacto con la tabla
                             ticks: { display: false },
                             grid: { color: '#f1f5f9' }
                         }
@@ -325,7 +334,7 @@
             <div id="habitListContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2"></div>
         </section>
 
-        <!-- Matriz de Hábitos + Gráfico Alineado al Costado -->
+        <!-- Matriz de Hábitos + Gráfico Alineado Perfectamente al Lado -->
         <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
             <h2 class="text-lg font-bold mb-1">2. Registro Diario y Gráfico de Cumplimiento</h2>
             <p class="text-xs text-slate-500 mb-4">Haz clic en cada casilla para marcar tu check. El punto en la gráfica
@@ -344,17 +353,10 @@
                     <tbody id="matrixTableBody"></tbody>
                 </table>
 
-                <!-- Gráfico con Eje X arriba y alineado simétricamente -->
-                <div class="flex-1 flex flex-col">
-                    <div
-                        class="bg-slate-50 border border-slate-300 border-b-0 rounded-t-lg px-3 py-2 flex justify-between items-center text-xs font-semibold text-slate-600 h-[155px] box-border">
-                        <span>Gráfico de Líneas y Puntos</span>
-                        <span>Hábitos realizados</span>
-                    </div>
-                    <div class="border border-slate-300 rounded-b-lg p-2 bg-slate-50 relative w-full"
-                        id="chartContainer">
-                        <canvas id="lineChart"></canvas>
-                    </div>
+                <!-- Gráfico unificado sin espacios muertos, alineado desde el borde superior de la tabla -->
+                <div class="flex-1 border border-slate-300 rounded-lg p-2 bg-slate-50 relative w-full"
+                    id="chartContainer">
+                    <canvas id="lineChart"></canvas>
                 </div>
             </div>
         </section>
