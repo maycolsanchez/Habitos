@@ -131,7 +131,7 @@
             let rowsHtml = '';
             for (let day = 1; day <= days; day++) {
                 rowsHtml += `
-          <tr class="h-9 hover:bg-slate-50" data-day="${day}">
+          <tr class="h-9 hover:bg-slate-50">
             <td class="border border-slate-300 font-semibold text-xs text-slate-600 bg-slate-50">${day}</td>
             ${window.appData.habits.map((_, hIdx) => {
                     const isChecked = !!window.appData.checks[`${day}_${hIdx}`];
@@ -145,33 +145,24 @@
         `;
             }
             tbody.innerHTML = rowsHtml;
-
-            // Sincronizar dinámicamente la posición superior del gráfico con la primera fila (Día 1)
-            setTimeout(() => {
-                const theadElement = document.querySelector('table thead');
-                const chartWrapper = document.getElementById('chartWrapperBox');
-                if (theadElement && chartWrapper) {
-                    chartWrapper.style.marginTop = `${theadElement.offsetHeight}px`;
-                }
-            }, 50);
         }
 
         function renderChart() {
             const days = window.getDaysInMonth();
-            let habitCounts = [];
-            let dayLabels = [];
+            const dayLabels = [];
+            const chartData = [];
 
-            // Generación estricta desde el Día 1 hasta el último día
+            // Mapeamos los datos correctos: Eje Y son los días, Eje X son los hábitos contados
             for (let day = 1; day <= days; day++) {
                 dayLabels.push(`Día ${day}`);
                 let count = 0;
                 window.appData.habits.forEach((_, hIdx) => {
                     if (window.appData.checks[`${day}_${hIdx}`]) count++;
                 });
-                habitCounts.push(count);
+                chartData.push({ x: count, y: `Día ${day}` });
             }
 
-            // Altura exacta calculada: 36px por cada fila del día
+            // Altura exacta sincronizada con las filas de la tabla
             const chartContainer = document.getElementById('chartContainer');
             chartContainer.style.height = `${days * 36}px`;
 
@@ -189,7 +180,7 @@
                     labels: dayLabels,
                     datasets: [{
                         label: 'Hábitos completados',
-                        data: habitCounts,
+                        data: chartData,
                         borderColor: '#4f46e5',
                         backgroundColor: 'rgba(79, 70, 229, 0.1)',
                         borderWidth: 2,
@@ -200,20 +191,23 @@
                     }]
                 },
                 options: {
-                    indexAxis: 'y',
+                    indexAxis: 'y', // Mantiene los días en vertical
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
                         x: {
+                            type: 'linear',
                             min: 0,
                             max: Math.max(window.appData.habits.length, 1),
                             ticks: { stepSize: 1, font: { size: 10 } },
-                            position: 'top',
+                            position: 'top', // ¡Coloca los números de 0 al 10 en la parte superior, justo arriba de tu línea naranja!
                             grid: { color: '#e2e8f0' }
                         },
                         y: {
-                            reverse: true, // El Día 1 se coloca en la cima
+                            type: 'category',
+                            labels: dayLabels,
+                            reverse: true, // Asegura que el Día 1 comience arriba coincidiendo con la primera fila
                             ticks: { display: false },
                             grid: { color: '#f1f5f9' }
                         }
@@ -350,20 +344,22 @@
                     <tbody id="matrixTableBody"></tbody>
                 </table>
 
-                <!-- Gráfico Alineado Exactamente desde la Fila 1 (Día 1) -->
-                <div class="flex-1 border border-slate-200 rounded-lg p-2 bg-slate-50" id="chartWrapperBox">
-                    <div class="text-xs font-semibold text-slate-600 mb-1 flex justify-between px-2">
+                <!-- Gráfico con Eje X arriba y alineado simétricamente -->
+                <div class="flex-1 flex flex-col">
+                    <div
+                        class="bg-slate-50 border border-slate-300 border-b-0 rounded-t-lg px-3 py-2 flex justify-between items-center text-xs font-semibold text-slate-600 h-[155px] box-border">
                         <span>Gráfico de Líneas y Puntos</span>
                         <span>Hábitos realizados</span>
                     </div>
-                    <div class="relative w-full" id="chartContainer">
+                    <div class="border border-slate-300 rounded-b-lg p-2 bg-slate-50 relative w-full"
+                        id="chartContainer">
                         <canvas id="lineChart"></canvas>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Sección 3: Evaluación de Hábitos Logrados (Orden Descendente) -->
+        <!-- Sección 3: Evaluación de Hábitos Logrados -->
         <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <h2 class="text-lg font-bold mb-3 flex items-center justify-between">
                 <span>3. Evaluación de Hábitos del Mes (Ordenados por Mayor Progreso)</span>
