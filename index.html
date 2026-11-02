@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Libreta de Seguimiento de Hábitos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Conexión a Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // PEGA AQUÍ TUS CREDENCIALES EXACTAS DE FIREBASE
+        const firebaseConfig = {
+            apiKey: "AIzaSyCcmwlf99luVc0VEjOsUO8prTpCp0h1TMA",
+            authDomain: "habitos-3c7ef.firebaseapp.com",
+            projectId: "habitos-3c7ef",
+            storageBucket: "habitos-3c7ef.firebasestorage.app",
+            messagingSenderId: "643472848516",
+            appId: "1:643472848516:web:ad3be33061aafd3e17f4d1",
+            measurementId: "G-KE9MFFGQ9B"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const docRef = doc(db, "tracking", "mi_data_habitos");
+
+        window.appData = {
+            habits: ['Rutina matutina', 'Escribir', 'Gym', 'Estudiar', 'Leer', 'Vídeos', '10K Pasos', 'Uso móvil', 'Ducha fría', 'Rutina nocturna'],
+            checks: {},
+            goals: []
+        };
+
+        let chartInstance = null;
+
+        // Escuchar datos en tiempo real desde Firestore (celular <-> PC)
+        onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                window.appData.habits = data.habits || window.appData.habits;
+                window.appData.checks = data.checks || {};
+                window.appData.goals = data.goals || [];
+                if (typeof renderAll === 'function') renderAll();
+            } else {
+                saveDataToCloud();
+            }
+        });
+
+        window.saveDataToCloud = async function () {
+            try {
+                await setDoc(docRef, {
+                    habits: window.appData.habits,
+                    checks: window.appData.checks,
+                    goals: window.appData.goals
+                });
+            } catch (e) {
+                console.error("Error al sincronizar con Firebase: ", e);
+            }
+        };
+    </script>
+
+    <style>
+        .vertical-text-header {
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+            white-space: nowrap;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-100 min-h-screen text-slate-800 p-4 md:p-8">
+    <div class="max-w-6xl mx-auto space-y-6">
+
+        <!-- Encabezado -->
+        <header
+            class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800">Libreta de Seguimiento de Hábitos</h1>
+                <p class="text-sm text-slate-500">Sincronización en tiempo real entre tu celular y tu PC</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <label class="text-sm font-semibold text-slate-600">Mes / Año:</label>
+                <input type="month" id="monthPicker"
+                    class="border rounded-lg px-3 py-1.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+        </header>
+
+        <!-- Lista Previa de Hábitos -->
+        <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <h2 class="text-lg font-bold mb-3 flex items-center justify-between">
+                <span>1. Mis Hábitos Propuestos</span>
+                <span id="habitCountBadge" class="text-xs bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full">0
+                    Hábitos</span>
+            </h2>
+            <div class="flex gap-2 mb-4">
+                <input type="text" id="newHabitInput" placeholder="Ej. Rutina matutina, Leer..."
+                    class="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <button onclick="addHabit()"
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors">
+                    + Agregar Hábito
+                </button>
+            </div>
+            <div id="habitListContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2"></div>
+        </section>
+
+        <!-- Matriz de Hábitos + Gráfico Alineado -->
+        <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+            <h2 class="text-lg font-bold mb-1">2. Registro Diario y Gráfico de Cumplimiento</h2>
+            <p class="text-xs text-slate-500 mb-4">Haz clic en cada casilla para marcar tu check. El punto en la gráfica
+                se moverá automáticamente.</p>
+
+            <div class="flex items-start gap-4 min-w-[700px]">
+                <!-- Matriz Con Días (Eje Y) y Hábitos Verticales (Eje X) -->
+                <table class="border-collapse border border-slate-300 text-center text-sm">
+                    <thead>
+                        <tr class="bg-slate-50">
+                            <th class="border border-slate-300 p-2 text-xs font-semibold w-12">Día</th>
+                            <th id="emptyHeaderTh"
+                                class="border border-slate-300 p-2 font-medium text-xs text-slate-400">Sin hábitos</th>
+                        </tr>
+                    </thead>
+                    <tbody id="matrixTableBody"></tbody>
+                </table>
+
+                <!-- Gráfico Alineado al Mismo Nivel -->
+                <div class="flex-1 border border-slate-200 rounded-lg p-2 bg-slate-50">
+                    <div class="text-xs font-semibold text-slate-600 mb-1 flex justify-between px-2">
+                        <span>Gráfico de Líneas y Puntos</span>
+                        <span>Hábitos realizados</span>
+                    </div>
+                    <div class="relative w-full" id="chartContainer">
+                        <canvas id="lineChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sección 3: Evaluación de Hábitos Logrados (Orden Descendente) -->
+        <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <h2 class="text-lg font-bold mb-3 flex items-center justify-between">
+                <span>3. Evaluación de Hábitos del Mes (Ordenados por Mayor Progreso)</span>
+                <span id="monthlyEvalSummary" class="text-xs text-slate-500">0/0 logrados</span>
+            </h2>
+            <div id="monthlyEvalContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3"></div>
+        </section>
+
+    </div>
+
+    <script>
+        document.getElementById('monthPicker').value = new Date().toISOString().slice(0, 7);
+        document.getElementById('monthPicker').addEventListener('change', renderAll);
+
+        function getDaysInMonth() {
+            const val = document.getElementById('monthPicker').value;
+            if (!val) return 31;
+            const [year, month] = val.split('-');
+            return new Date(year, month, 0).getDate();
+        }
+
+        function addHabit() {
+            const input = document.getElementById('newHabitInput');
+            const text = input.value.trim();
+            if (!text) return;
+            window.appData.habits.push(text);
+            input.value = '';
+            window.saveDataToCloud();
+            renderAll();
+        }
+
+        function removeHabit(index) {
+            window.appData.habits.splice(index, 1);
+            // Limpiar checks asociados
+            const days = getDaysInMonth();
+            for (let d = 1; d <= days; d++) {
+                delete window.appData.checks[`${d}_${index}`];
+            }
+            window.saveDataToCloud();
+            renderAll();
+        }
+
+        function toggleCheck(day, habitIndex) {
+            const key = `${day}_${habitIndex}`;
+            window.appData.checks[key] = !window.appData.checks[key];
+            window.saveDataToCloud();
+            renderAll();
+        }
+
+        function renderAll() {
+            renderHabitList();
+            renderMatrix();
+            renderChart();
+            renderMonthlyEvaluation();
+        }
+
+        function renderHabitList() {
+            const container = document.getElementById('habitListContainer');
+            document.getElementById('habitCountBadge').textContent = `${window.appData.habits.length} Hábitos`;
+            container.innerHTML = window.appData.habits.map((h, i) => `
+        <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
+          <span class="font-medium text-slate-700">${i + 1}. ${h}</span>
+          <button onclick="removeHabit(${i})" class="text-slate-400 hover:text-red-500 font-bold ml-2">✕</button>
+        </div>
+      `).join('');
+        }
+
+        function renderMatrix() {
+            const tbody = document.getElementById('matrixTableBody');
+            const theadRow = document.querySelector('table thead tr');
+            const days = getDaysInMonth();
+
+            document.querySelectorAll('.dynamic-header').forEach(el => el.remove());
+            const emptyTh = document.getElementById('emptyHeaderTh');
+
+            if (window.appData.habits.length === 0) {
+                emptyTh.style.display = '';
+            } else {
+                emptyTh.style.display = 'none';
+                window.appData.habits.forEach((h, i) => {
+                    const th = document.createElement('th');
+                    th.className = 'dynamic-header border border-slate-300 p-2 h-36 align-bottom bg-slate-50';
+                    th.innerHTML = `<div class="vertical-text-header mx-auto font-medium text-xs text-slate-700">${i + 1}. ${h}</div>`;
+                    theadRow.insertBefore(th, emptyTh);
+                });
+            }
+
+            let rowsHtml = '';
+            for (let day = 1; day <= days; day++) {
+                rowsHtml += `
+          <tr class="h-9 hover:bg-slate-50">
+            <td class="border border-slate-300 font-semibold text-xs text-slate-600 bg-slate-50">${day}</td>
+            ${window.appData.habits.map((_, hIdx) => {
+                    const isChecked = !!window.appData.checks[`${day}_${hIdx}`];
+                    return `
+                <td onclick="toggleCheck(${day}, ${hIdx})" class="border border-slate-300 cursor-pointer font-bold text-indigo-600 select-none text-sm hover:bg-indigo-50">
+                  ${isChecked ? '✓' : ''}
+                </td>
+              `;
+                }).join('')}
+          </tr>
+        `;
+            }
+            tbody.innerHTML = rowsHtml;
+        }
+
+        function renderChart() {
+            const days = getDaysInMonth();
+            const habitCounts = [];
+            const dayLabels = [];
+
+            for (let day = 1; day <= days; day++) {
+                dayLabels.push(`Día ${day}`);
+                let count = 0;
+                window.appData.habits.forEach((_, hIdx) => {
+                    if (window.appData.checks[`${day}_${hIdx}`]) count++;
+                });
+                habitCounts.push(count);
+            }
+
+            const chartContainer = document.getElementById('chartContainer');
+            chartContainer.style.height = `${days * 36 + 40}px`;
+
+            const ctx = document.getElementById('lineChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dayLabels,
+                    datasets: [{
+                        label: 'Hábitos completados',
+                        data: habitCounts,
+                        borderColor: '#4f46e5',
+                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#4f46e5',
+                        pointRadius: 4,
+                        tension: 0.1,
+                        fill: false
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: {
+                            min: 0,
+                            max: Math.max(window.appData.habits.length, 1),
+                            ticks: { stepSize: 1, font: { size: 10 } },
+                            position: 'top',
+                            grid: { color: '#e2e8f0' }
+                        },
+                        y: {
+                            reverse: true,
+                            ticks: { display: false },
+                            grid: { color: '#f1f5f9' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderMonthlyEvaluation() {
+            const container = document.getElementById('monthlyEvalContainer');
+            const summaryEl = document.getElementById('monthlyEvalSummary');
+            const days = getDaysInMonth();
+            const totalHabits = window.appData.habits.length;
+
+            if (totalHabits === 0) {
+                container.innerHTML = `<p class="text-sm text-slate-400 col-span-full">No hay hábitos registrados.</p>`;
+                summaryEl.textContent = `0/0 logrados`;
+                return;
+            }
+
+            // Calcular desempeño por hábito de manera descendente
+            let stats = window.appData.habits.map((habitName, hIdx) => {
+                let completedDays = 0;
+                for (let day = 1; day <= days; day++) {
+                    if (window.appData.checks[`${day}_${hIdx}`]) completedDays++;
+                }
+                const percentage = Math.round((completedDays / days) * 100);
+                return { name: habitName, completedDays, percentage };
+            });
+
+            // Ordenar de mayor a menor porcentaje (descendente)
+            stats.sort((a, b) => b.percentage - a.percentage);
+
+            let achievedCount = stats.filter(s => s.percentage >= 70).lth; // Ej: considerado logro si es >= 70%
+            summaryEl.textContent = `${stats.filter(s => s.percentage >= 50).length}/${totalHabits} con buen progreso`;
+
+            container.innerHTML = stats.map(st => {
+                let emoji = '🥳🎉';
+                let statusText = '¡Hábito Cumplido!';
+                let bgCard = 'bg-emerald-50 border-emerald-200 text-emerald-900';
+
+                if (st.percentage === 0) {
+                    emoji = '😢💔';
+                    statusText = 'No se logró nada';
+                    bgCard = 'bg-rose-50 border-rose-200 text-rose-900';
+                } else if (st.percentage < 50) {
+                    emoji = '😔📉';
+                    statusText = 'Progreso insuficiente';
+                    bgCard = 'bg-amber-50 border-amber-200 text-amber-900';
+                }
+
+                return `
+          <div class="border rounded-lg p-3 ${bgCard} flex flex-col justify-between text-sm shadow-sm">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-bold truncate max-w-[70%]">${st.name}</span>
+              <span class="text-lg">${emoji}</span>
+            </div>
+            <div class="text-xs opacity-80 mb-2">${st.completedDays} de ${days} días (${st.percentage}%)</div>
+            <div class="text-xs font-semibold uppercase tracking-wider">${statusText}</div>
+          </div>
+        `;
+            }).join('');
+        }
+    </script>
+</body>
+
+</html>
