@@ -36,17 +36,18 @@
 
         let chartInstance = null;
 
-        // Escuchar datos en tiempo real desde Firestore (celular <-> PC)
+        // Escuchar datos en tiempo real desde Firestore
         onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 window.appData.habits = data.habits || window.appData.habits;
                 window.appData.checks = data.checks || {};
                 window.appData.goals = data.goals || [];
-                if (typeof renderAll === 'function') renderAll();
             } else {
                 saveDataToCloud();
             }
+            // Asegurar que siempre se renderice la interfaz
+            if (typeof renderAll === 'function') renderAll();
         });
 
         window.saveDataToCloud = async function () {
@@ -131,7 +132,7 @@
                         <span>Gráfico de Líneas y Puntos</span>
                         <span>Hábitos realizados</span>
                     </div>
-                    <div class="relative w-full" id="chartContainer">
+                    <div class="relative w-full h-[1150px]" id="chartContainer">
                         <canvas id="lineChart"></canvas>
                     </div>
                 </div>
