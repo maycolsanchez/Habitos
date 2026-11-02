@@ -8,262 +8,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <!-- Conexión a Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-        // Credenciales de Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyCcmwlf99luCv0VEj0sU08prTpCp0h1TMA",
-            authDomain: "habitos-3c7ef.firebaseapp.com",
-            projectId: "habitos-3c7ef",
-            storageBucket: "habitos-3c7ef.firebasestorage.app",
-            messagingSenderId: "643472848516",
-            appId: "1:643472848516:web:ad3be33061aafde317f4d1",
-            measurementId: "G-KE9MFFGQ9B"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const docRef = doc(db, "tracking", "mi_data_habitos");
-
-        window.appData = {
-            habits: ['Rutina matutina', 'Escribir', 'Gym', 'Estudiar', 'Leer', 'Vídeos', '10K Pasos', 'Uso móvil', 'Ducha fría', 'Rutina nocturna'],
-            checks: {}
-        };
-
-        let chartInstance = null;
-
-        window.saveDataToCloud = async function () {
-            try {
-                await setDoc(docRef, {
-                    habits: window.appData.habits,
-                    checks: window.appData.checks
-                });
-            } catch (e) {
-                console.error("Error guardando en Firebase:", e);
-            }
-        };
-
-        onSnapshot(docRef, (docSnap) => {
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                if (data.habits) window.appData.habits = data.habits;
-                if (data.checks) window.appData.checks = data.checks;
-            } else {
-                window.saveDataToCloud();
-            }
-            window.renderAll();
-        });
-
-        window.getDaysInMonth = function () {
-            const val = document.getElementById('monthPicker').value;
-            if (!val) return 31;
-            const [year, month] = val.split('-');
-            return new Date(year, month, 0).getDate();
-        };
-
-        window.addHabit = function () {
-            const input = document.getElementById('newHabitInput');
-            const text = input.value.trim();
-            if (!text) return;
-            window.appData.habits.push(text);
-            input.value = '';
-            window.saveDataToCloud();
-            window.renderAll();
-        };
-
-        window.removeHabit = function (index) {
-            window.appData.habits.splice(index, 1);
-            const days = window.getDaysInMonth();
-            for (let d = 1; d <= days; d++) {
-                delete window.appData.checks[`${d}_${index}`];
-            }
-            window.saveDataToCloud();
-            window.renderAll();
-        };
-
-        window.toggleCheck = function (day, habitIndex) {
-            const key = `${day}_${habitIndex}`;
-            window.appData.checks[key] = !window.appData.checks[key];
-            window.saveDataToCloud();
-            window.renderAll();
-        };
-
-        window.renderAll = function () {
-            renderHabitList();
-            renderMatrix();
-            renderChart();
-            renderMonthlyEvaluation();
-        };
-
-        function renderHabitList() {
-            const container = document.getElementById('habitListContainer');
-            document.getElementById('habitCountBadge').textContent = `${window.appData.habits.length} Hábitos`;
-            container.innerHTML = window.appData.habits.map((h, i) => `
-        <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
-          <span class="font-medium text-slate-700">${i + 1}. ${h}</span>
-          <button onclick="removeHabit(${i})" class="text-slate-400 hover:text-red-500 font-bold ml-2">✕</button>
-        </div>
-      `).join('');
-        }
-
-        function renderMatrix() {
-            const tbody = document.getElementById('matrixTableBody');
-            const theadRow = document.querySelector('table thead tr');
-            const days = window.getDaysInMonth();
-
-            document.querySelectorAll('.dynamic-header').forEach(el => el.remove());
-            const emptyTh = document.getElementById('emptyHeaderTh');
-
-            if (window.appData.habits.length === 0) {
-                emptyTh.style.display = '';
-            } else {
-                emptyTh.style.display = 'none';
-                window.appData.habits.forEach((h, i) => {
-                    const th = document.createElement('th');
-                    th.className = 'dynamic-header border border-slate-300 p-2 h-36 align-bottom bg-slate-50';
-                    th.innerHTML = `<div class="vertical-text-header mx-auto font-medium text-xs text-slate-700">${i + 1}. ${h}</div>`;
-                    theadRow.insertBefore(th, emptyTh);
-                });
-            }
-
-            let rowsHtml = '';
-            for (let day = 1; day <= days; day++) {
-                rowsHtml += `
-          <tr class="h-9 hover:bg-slate-50">
-            <td class="border border-slate-300 font-semibold text-xs text-slate-600 bg-slate-50">${day}</td>
-            ${window.appData.habits.map((_, hIdx) => {
-                    const isChecked = !!window.appData.checks[`${day}_${hIdx}`];
-                    return `
-                <td onclick="toggleCheck(${day}, ${hIdx})" class="border border-slate-300 cursor-pointer font-bold text-indigo-600 select-none text-sm hover:bg-indigo-50">
-                  ${isChecked ? '✓' : ''}
-                </td>
-              `;
-                }).join('')}
-          </tr>
-        `;
-            }
-            tbody.innerHTML = rowsHtml;
-        }
-
-        function renderChart() {
-            const days = window.getDaysInMonth();
-            const habitCounts = [];
-            const dayLabels = [];
-
-            for (let day = 1; day <= days; day++) {
-                dayLabels.push(`${day}`);
-                let count = 0;
-                window.appData.habits.forEach((_, hIdx) => {
-                    if (window.appData.checks[`${day}_${hIdx}`]) count++;
-                });
-                habitCounts.push(count);
-            }
-
-            const canvas = document.getElementById('lineChart');
-            if (!canvas) return;
-
-            const ctx = canvas.getContext('2d');
-            if (chartInstance) {
-                chartInstance.destroy();
-            }
-
-            chartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: dayLabels,
-                    datasets: [{
-                        label: 'Hábitos completados',
-                        data: habitCounts,
-                        borderColor: '#4f46e5',
-                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
-                        borderWidth: 2,
-                        pointBackgroundColor: '#4f46e5',
-                        pointRadius: 4,
-                        tension: 0.2,
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: Math.max(window.appData.habits.length, 5),
-                            ticks: { stepSize: 1 }
-                        },
-                        x: {
-                            grid: { display: false }
-                        }
-                    }
-                }
-            });
-        }
-
-        function renderMonthlyEvaluation() {
-            const container = document.getElementById('monthlyEvalContainer');
-            const summaryEl = document.getElementById('monthlyEvalSummary');
-            const days = window.getDaysInMonth();
-            const totalHabits = window.appData.habits.length;
-
-            if (totalHabits === 0) {
-                container.innerHTML = `<p class="text-sm text-slate-400 col-span-full">No hay hábitos registrados.</p>`;
-                summaryEl.textContent = `0/0 logrados`;
-                return;
-            }
-
-            let stats = window.appData.habits.map((habitName, hIdx) => {
-                let completedDays = 0;
-                for (let day = 1; day <= days; day++) {
-                    if (window.appData.checks[`${day}_${hIdx}`]) completedDays++;
-                }
-                const percentage = Math.round((completedDays / days) * 100);
-                return { name: habitName, completedDays, percentage };
-            });
-
-            stats.sort((a, b) => b.percentage - a.percentage);
-
-            summaryEl.textContent = `${stats.filter(s => s.percentage >= 50).length}/${totalHabits} con buen progreso`;
-
-            container.innerHTML = stats.map(st => {
-                let emoji = '🥳🎉';
-                let statusText = '¡Hábito Cumplido!';
-                let bgCard = 'bg-emerald-50 border-emerald-200 text-emerald-900';
-
-                if (st.percentage === 0) {
-                    emoji = '😢💔';
-                    statusText = 'No se logró nada';
-                    bgCard = 'bg-rose-50 border-rose-200 text-rose-900';
-                } else if (st.percentage < 50) {
-                    emoji = '😔📉';
-                    statusText = 'Progreso insuficiente';
-                    bgCard = 'bg-amber-50 border-amber-200 text-amber-900';
-                }
-
-                return `
-          <div class="border rounded-lg p-3 ${bgCard} flex flex-col justify-between text-sm shadow-sm">
-            <div class="flex items-center justify-between mb-1">
-              <span class="font-bold truncate max-w-[70%]" title="${st.name}">${st.name}</span>
-              <span class="text-lg">${emoji}</span>
-            </div>
-            <div class="text-xs opacity-80 mb-2">${st.completedDays} de ${days} días (${st.percentage}%)</div>
-            <div class="text-xs font-semibold uppercase tracking-wider">${statusText}</div>
-          </div>
-        `;
-            }).join('');
-        }
-
-        window.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('monthPicker').value = new Date().toISOString().slice(0, 7);
-            document.getElementById('monthPicker').addEventListener('change', window.renderAll);
-            window.renderAll();
-        });
-    </script>
-
     <style>
         .vertical-text-header {
             writing-mode: vertical-rl;
@@ -343,6 +87,274 @@
         </section>
 
     </div>
+
+    <!-- Lógica y Firebase -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCcmwlf99luCv0VEj0sU08prTpCp0h1TMA",
+            authDomain: "habitos-3c7ef.firebaseapp.com",
+            projectId: "habitos-3c7ef",
+            storageBucket: "habitos-3c7ef.firebasestorage.app",
+            messagingSenderId: "643472848516",
+            appId: "1:643472848516:web:ad3be33061aafde317f4d1",
+            measurementId: "G-KE9MFFGQ9B"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const docRef = doc(db, "tracking", "mi_data_habitos");
+
+        // Escuchar cambios de Firebase en tiempo real
+        onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                if (data.habits) window.appData.habits = data.habits;
+                if (data.checks) window.appData.checks = data.checks;
+                window.renderAll();
+            } else {
+                window.saveDataToCloud();
+            }
+        });
+
+        window.saveDataToCloud = async function () {
+            try {
+                await setDoc(docRef, {
+                    habits: window.appData.habits,
+                    checks: window.appData.checks
+                });
+            } catch (e) {
+                console.error("Error guardando en Firebase:", e);
+            }
+        };
+    </script>
+
+    <script>
+        // Estructura de datos global y funciones de interfaz
+        window.appData = {
+            habits: ['Rutina matutina', 'Escribir', 'Gym', 'Estudiar', 'Leer', 'Vídeos', '10K Pasos', 'Uso móvil', 'Ducha fría', 'Rutina nocturna'],
+            checks: {}
+        };
+
+        let chartInstance = null;
+
+        window.getDaysInMonth = function () {
+            const val = document.getElementById('monthPicker').value;
+            if (!val) return 31;
+            const [year, month] = val.split('-');
+            return new Date(year, month, 0).getDate();
+        };
+
+        window.addHabit = function () {
+            const input = document.getElementById('newHabitInput');
+            const text = input.value.trim();
+            if (!text) return;
+            window.appData.habits.push(text);
+            input.value = '';
+            if (typeof window.saveDataToCloud === 'function') window.saveDataToCloud();
+            window.renderAll();
+        };
+
+        window.removeHabit = function (index) {
+            window.appData.habits.splice(index, 1);
+            const days = window.getDaysInMonth();
+            for (let d = 1; d <= days; d++) {
+                delete window.appData.checks[`${d}_${index}`];
+            }
+            if (typeof window.saveDataToCloud === 'function') window.saveDataToCloud();
+            window.renderAll();
+        };
+
+        window.toggleCheck = function (day, habitIndex) {
+            const key = `${day}_${habitIndex}`;
+            window.appData.checks[key] = !window.appData.checks[key];
+            if (typeof window.saveDataToCloud === 'function') window.saveDataToCloud();
+            window.renderAll();
+        };
+
+        window.renderAll = function () {
+            renderHabitList();
+            renderMatrix();
+            renderChart();
+            renderMonthlyEvaluation();
+        };
+
+        function renderHabitList() {
+            const container = document.getElementById('habitListContainer');
+            const badge = document.getElementById('habitCountBadge');
+            if (!container || !badge) return;
+            badge.textContent = `${window.appData.habits.length} Hábitos`;
+            container.innerHTML = window.appData.habits.map((h, i) => `
+        <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
+          <span class="font-medium text-slate-700">${i + 1}. ${h}</span>
+          <button onclick="removeHabit(${i})" class="text-slate-400 hover:text-red-500 font-bold ml-2">✕</button>
+        </div>
+      `).join('');
+        }
+
+        function renderMatrix() {
+            const tbody = document.getElementById('matrixTableBody');
+            const theadRow = document.querySelector('table thead tr');
+            const emptyTh = document.getElementById('emptyHeaderTh');
+            if (!tbody || !theadRow || !emptyTh) return;
+
+            const days = window.getDaysInMonth();
+            document.querySelectorAll('.dynamic-header').forEach(el => el.remove());
+
+            if (window.appData.habits.length === 0) {
+                emptyTh.style.display = '';
+            } else {
+                emptyTh.style.display = 'none';
+                window.appData.habits.forEach((h, i) => {
+                    const th = document.createElement('th');
+                    th.className = 'dynamic-header border border-slate-300 p-2 h-36 align-bottom bg-slate-50';
+                    th.innerHTML = `<div class="vertical-text-header mx-auto font-medium text-xs text-slate-700">${i + 1}. ${h}</div>`;
+                    theadRow.insertBefore(th, emptyTh);
+                });
+            }
+
+            let rowsHtml = '';
+            for (let day = 1; day <= days; day++) {
+                rowsHtml += `
+          <tr class="h-9 hover:bg-slate-50">
+            <td class="border border-slate-300 font-semibold text-xs text-slate-600 bg-slate-50">${day}</td>
+            ${window.appData.habits.map((_, hIdx) => {
+                    const isChecked = !!window.appData.checks[`${day}_${hIdx}`];
+                    return `
+                <td onclick="toggleCheck(${day}, ${hIdx})" class="border border-slate-300 cursor-pointer font-bold text-indigo-600 select-none text-sm hover:bg-indigo-50">
+                  ${isChecked ? '✓' : ''}
+                </td>
+              `;
+                }).join('')}
+          </tr>
+        `;
+            }
+            tbody.innerHTML = rowsHtml;
+        }
+
+        function renderChart() {
+            const canvas = document.getElementById('lineChart');
+            if (!canvas) return;
+
+            const days = window.getDaysInMonth();
+            const habitCounts = [];
+            const dayLabels = [];
+
+            for (let day = 1; day <= days; day++) {
+                dayLabels.push(`${day}`);
+                let count = 0;
+                window.appData.habits.forEach((_, hIdx) => {
+                    if (window.appData.checks[`${day}_${hIdx}`]) count++;
+                });
+                habitCounts.push(count);
+            }
+
+            const ctx = canvas.getContext('2d');
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dayLabels,
+                    datasets: [{
+                        label: 'Hábitos completados',
+                        data: habitCounts,
+                        borderColor: '#4f46e5',
+                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#4f46e5',
+                        pointRadius: 4,
+                        tension: 0.2,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: Math.max(window.appData.habits.length, 5),
+                            ticks: { stepSize: 1 }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderMonthlyEvaluation() {
+            const container = document.getElementById('monthlyEvalContainer');
+            const summaryEl = document.getElementById('monthlyEvalSummary');
+            if (!container || !summaryEl) return;
+
+            const days = window.getDaysInMonth();
+            const totalHabits = window.appData.habits.length;
+
+            if (totalHabits === 0) {
+                container.innerHTML = `<p class="text-sm text-slate-400 col-span-full">No hay hábitos registrados.</p>`;
+                summaryEl.textContent = `0/0 logrados`;
+                return;
+            }
+
+            let stats = window.appData.habits.map((habitName, hIdx) => {
+                let completedDays = 0;
+                for (let day = 1; day <= days; day++) {
+                    if (window.appData.checks[`${day}_${hIdx}`]) completedDays++;
+                }
+                const percentage = Math.round((completedDays / days) * 100);
+                return { name: habitName, completedDays, percentage };
+            });
+
+            stats.sort((a, b) => b.percentage - a.percentage);
+
+            summaryEl.textContent = `${stats.filter(s => s.percentage >= 50).length}/${totalHabits} con buen progreso`;
+
+            container.innerHTML = stats.map(st => {
+                let emoji = '🥳🎉';
+                let statusText = '¡Hábito Cumplido!';
+                let bgCard = 'bg-emerald-50 border-emerald-200 text-emerald-900';
+
+                if (st.percentage === 0) {
+                    emoji = '😢💔';
+                    statusText = 'No se logró nada';
+                    bgCard = 'bg-rose-50 border-rose-200 text-rose-900';
+                } else if (st.percentage < 50) {
+                    emoji = '😔📉';
+                    statusText = 'Progreso insuficiente';
+                    bgCard = 'bg-amber-50 border-amber-200 text-amber-900';
+                }
+
+                return `
+          <div class="border rounded-lg p-3 ${bgCard} flex flex-col justify-between text-sm shadow-sm">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-bold truncate max-w-[70%]" title="${st.name}">${st.name}</span>
+              <span class="text-lg">${emoji}</span>
+            </div>
+            <div class="text-xs opacity-80 mb-2">${st.completedDays} de ${days} días (${st.percentage}%)</div>
+            <div class="text-xs font-semibold uppercase tracking-wider">${statusText}</div>
+          </div>
+        `;
+            }).join('');
+        }
+
+        // Inicializar visualización de inmediato al cargar la página
+        document.addEventListener('DOMContentLoaded', () => {
+            const picker = document.getElementById('monthPicker');
+            if (picker) {
+                picker.value = new Date().toISOString().slice(0, 7);
+                picker.addEventListener('change', window.renderAll);
+            }
+            window.renderAll();
+        });
+    </script>
 </body>
 
 </html>
