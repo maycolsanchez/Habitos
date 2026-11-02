@@ -8,7 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <!-- Script Principal de Firebase y Lógica -->
+    <!-- Conexión a Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -35,7 +35,6 @@
 
         let chartInstance = null;
 
-        // Función de sincronización a la nube
         window.saveDataToCloud = async function () {
             try {
                 await setDoc(docRef, {
@@ -47,7 +46,6 @@
             }
         };
 
-        // Escuchar datos en tiempo real de Firebase
         onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
@@ -59,7 +57,6 @@
             window.renderAll();
         });
 
-        // Funciones globales expuestas para HTML
         window.getDaysInMonth = function () {
             const val = document.getElementById('monthPicker').value;
             if (!val) return 31;
@@ -140,7 +137,7 @@
             ${window.appData.habits.map((_, hIdx) => {
                     const isChecked = !!window.appData.checks[`${day}_${hIdx}`];
                     return `
-                <td onclick="toggleCheck(${day},${hIdx})" class="border border-slate-300 cursor-pointer font-bold text-indigo-600 select-none text-sm hover:bg-indigo-50">
+                <td onclick="toggleCheck(${day}, ${hIdx})" class="border border-slate-300 cursor-pointer font-bold text-indigo-600 select-none text-sm hover:bg-indigo-50">
                   ${isChecked ? '✓' : ''}
                 </td>
               `;
@@ -157,16 +154,13 @@
             const dayLabels = [];
 
             for (let day = 1; day <= days; day++) {
-                dayLabels.push(`Día ${day}`);
+                dayLabels.push(`${day}`);
                 let count = 0;
                 window.appData.habits.forEach((_, hIdx) => {
                     if (window.appData.checks[`${day}_${hIdx}`]) count++;
                 });
                 habitCounts.push(count);
             }
-
-            const chartContainer = document.getElementById('chartContainer');
-            chartContainer.style.height = `${days * 36 + 40}px`;
 
             const canvas = document.getElementById('lineChart');
             if (!canvas) return;
@@ -188,27 +182,22 @@
                         borderWidth: 2,
                         pointBackgroundColor: '#4f46e5',
                         pointRadius: 4,
-                        tension: 0.1,
-                        fill: false
+                        tension: 0.2,
+                        fill: true
                     }]
                 },
                 options: {
-                    indexAxis: 'y',
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        x: {
-                            min: 0,
-                            max: Math.max(window.appData.habits.length, 1),
-                            ticks: { stepSize: 1, font: { size: 10 } },
-                            position: 'top',
-                            grid: { color: '#e2e8f0' }
-                        },
                         y: {
-                            reverse: true,
-                            ticks: { display: false },
-                            grid: { color: '#f1f5f9' }
+                            beginAtZero: true,
+                            max: Math.max(window.appData.habits.length, 5),
+                            ticks: { stepSize: 1 }
+                        },
+                        x: {
+                            grid: { display: false }
                         }
                     }
                 }
@@ -268,7 +257,6 @@
             }).join('');
         }
 
-        // Inicialización al cargar la página
         window.addEventListener('DOMContentLoaded', () => {
             document.getElementById('monthPicker').value = new Date().toISOString().slice(0, 7);
             document.getElementById('monthPicker').addEventListener('change', window.renderAll);
@@ -320,24 +308,41 @@
             <div id="habitListContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2"></div>
         </section>
 
-        <!-- Matriz de Hábitos + Gráfico Alineado -->
+        <!-- Matriz de Hábitos -->
         <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
-            <h2 class="text-lg font-bold mb-1">2. Registro Diario y Gráfico de Cumplimiento</h2>
-            <p class="text-xs text-slate-500 mb-4">Haz clic en cada casilla para marcar tu check. El punto en la gráfica
-                se moverá automáticamente.</p>
+            <h2 class="text-lg font-bold mb-1">2. Registro Diario</h2>
+            <p class="text-xs text-slate-500 mb-4">Haz clic en cada casilla para marcar tu check.</p>
+            <table class="border-collapse border border-slate-300 text-center text-sm min-w-full">
+                <thead>
+                    <tr class="bg-slate-50">
+                        <th class="border border-slate-300 p-2 text-xs font-semibold w-12">Día</th>
+                        <th id="emptyHeaderTh" class="border border-slate-300 p-2 font-medium text-xs text-slate-400">
+                            Sin hábitos</th>
+                    </tr>
+                </thead>
+                <tbody id="matrixTableBody"></tbody>
+            </table>
+        </section>
 
-            <div class="flex items-start gap-4 min-w-[700px]">
-                <!-- Matriz Con Días (Eje Y) y Hábitos Verticales (Eje X) -->
-                <table class="border-collapse border border-slate-300 text-center text-sm">
-                    <thead>
-                        <tr class="bg-slate-50">
-                            <th class="border border-slate-300 p-2 text-xs font-semibold w-12">Día</th>
-                            <th id="emptyHeaderTh"
-                                class="border border-slate-300 p-2 font-medium text-xs text-slate-400">Sin hábitos</th>
-                        </tr>
-                    </thead>
-                    <tbody id="matrixTableBody"></tbody>
-                </table>
+        <!-- Gráfico de Cumplimiento -->
+        <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <h2 class="text-lg font-bold mb-1">Gráfico de Cumplimiento Diario</h2>
+            <p class="text-xs text-slate-500 mb-4">Evolución de hábitos completados por día.</p>
+            <div class="relative w-full h-80">
+                <canvas id="lineChart"></canvas>
+            </div>
+        </section>
 
-                <!-- Gráfico Alineado al Mismo Nivel -->
-                <div class="flex-1 border border-
+        <!-- Sección 3: Evaluación de Hábitos Logrados -->
+        <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <h2 class="text-lg font-bold mb-3 flex items-center justify-between">
+                <span>3. Evaluación de Hábitos del Mes (Ordenados por Mayor Progreso)</span>
+                <span id="monthlyEvalSummary" class="text-xs text-slate-500">0/0 logrados</span>
+            </h2>
+            <div id="monthlyEvalContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3"></div>
+        </section>
+
+    </div>
+</body>
+
+</html>
