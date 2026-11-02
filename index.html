@@ -193,15 +193,20 @@
                     indexAxis: 'y',
                     responsive: true,
                     maintainAspectRatio: false,
+                    layout: {
+                        padding: {
+                            top: 10
+                        }
+                    },
                     plugins: {
                         legend: { display: false },
                         title: {
                             display: true,
-                            text: 'Gráfico de Líneas y Puntos (Hábitos realizados)',
+                            text: 'Gráfico de Líneas y Puntos                                                                     Hábitos realizados',
                             font: { size: 12, weight: 'bold' },
                             color: '#334155',
                             align: 'start',
-                            padding: { bottom: 10 }
+                            padding: { bottom: 20 }
                         }
                     },
                     scales: {
@@ -210,7 +215,7 @@
                             min: 0,
                             max: Math.max(window.appData.habits.length, 1),
                             ticks: { stepSize: 1, font: { size: 10 } },
-                            position: 'top', // Números del 0 al 10 en la parte superior
+                            position: 'top', // Números del 0 al 10 colocados estrictamente arriba
                             grid: { color: '#e2e8f0' }
                         },
                         y: {
@@ -353,7 +358,7 @@
                     <tbody id="matrixTableBody"></tbody>
                 </table>
 
-                <!-- Gráfico unificado sin espacios muertos, alineado desde el borde superior de la tabla -->
+                <!-- Gráfico unificado con cabecera interna integrada al canvas -->
                 <div class="flex-1 border border-slate-300 rounded-lg p-2 bg-slate-50 relative w-full"
                     id="chartContainer">
                     <canvas id="lineChart"></canvas>
