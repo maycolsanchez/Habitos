@@ -161,7 +161,7 @@
                 habitCounts.push(count);
             }
 
-            // Altura dinámica para que el gráfico coincida exactamente fila por fila con la tabla de días
+            // Altura dinámica idéntica a la tabla para perfecta alineación visual
             const chartContainer = document.getElementById('chartContainer');
             chartContainer.style.height = `${days * 36 + 45}px`;
 
@@ -203,7 +203,7 @@
                             grid: { color: '#e2e8f0' }
                         },
                         y: {
-                            reverse: true,
+                            reverse: true, // <-- Esto alinea Día 1 arriba y Día 31 abajo exacto con la tabla
                             ticks: { display: false },
                             grid: { color: '#f1f5f9' }
                         }
@@ -340,7 +340,7 @@
                     <tbody id="matrixTableBody"></tbody>
                 </table>
 
-                <!-- Gráfico Alineado al Mismo Nivel (Eje X: Cantidad de hábitos, Eje Y: Días) -->
+                <!-- Gráfico Alineado Exactamente a la Altura de la Tabla -->
                 <div class="flex-1 border border-slate-200 rounded-lg p-2 bg-slate-50">
                     <div class="text-xs font-semibold text-slate-600 mb-1 flex justify-between px-2">
                         <span>Gráfico de Líneas y Puntos</span>
