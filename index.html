@@ -149,10 +149,11 @@
 
         function renderChart() {
             const days = window.getDaysInMonth();
-            const habitCounts = [];
-            const dayLabels = [];
+            let habitCounts = [];
+            let dayLabels = [];
 
-            for (let day = 1; day <= days; day++) {
+            // Invertimos el orden para que el Día 1 quede arriba y el Día 30/31 abajo
+            for (let day = days; day >= 1; day--) {
                 dayLabels.push(`Día ${day}`);
                 let count = 0;
                 window.appData.habits.forEach((_, hIdx) => {
@@ -161,7 +162,6 @@
                 habitCounts.push(count);
             }
 
-            // Altura exacta sincronizada con la cantidad de filas de la tabla
             const chartContainer = document.getElementById('chartContainer');
             chartContainer.style.height = `${days * 36 + 45}px`;
 
@@ -203,7 +203,6 @@
                             grid: { color: '#e2e8f0' }
                         },
                         y: {
-                            reverse: false, // <-- Orientación normal para que el Día 1 empiece arriba exactamente con la tabla
                             ticks: { display: false },
                             grid: { color: '#f1f5f9' }
                         }
